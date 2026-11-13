@@ -359,7 +359,7 @@ export default async (ctx) => {
 
         return ctx.json({
             url,
-            quality: payload.quality || getQualityName(quality || 'standard', server),
+            quality: getQualityName(payload.quality || quality || 'standard', server),
             duration: payload.duration,
             loudness: payload.loudness || null,
         })

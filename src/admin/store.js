@@ -1,7 +1,7 @@
 import { get_runtime } from '../util.js'
 import { validateCookie as validateCookieOnline } from './cookie-validator.js'
 import config from '../config.js'
-import { getQualityRequirement } from '../quality.js'
+import { getQualityRequirement, isValidQuality } from '../quality.js'
 
 const runtime = get_runtime()
 
@@ -1023,31 +1023,8 @@ class DataStore {
      * @returns {boolean}
      */
     isQualityRequiresSvip(quality, platform) {
-        if (!quality) return false
-
-        const qualityLower = String(quality).toLowerCase()
-
-        // 网易云音乐 SVIP 音质
-        if (platform === 'netease') {
-            return ['sky', 'jymaster', 'dolby'].includes(qualityLower)
-        }
-
-        // QQ 音乐 SVIP（超级会员）音质
-        if (platform === 'tencent') {
-            return ['atmos', 'master'].includes(qualityLower)
-        }
-
-        // 汽水音乐 SVIP 音质
-        if (platform === 'qishui') {
-            return ['flac', 'lossless', 'studio', 'atmos'].includes(qualityLower)
-        }
-
-        // 酷狗音乐 SVIP 音质
-        if (platform === 'kugou') {
-            return ['hires', 'atmos', 'master', 'viper_atmos', 'viper_tape', 'viper_clear', 'viper_hifi', 'acappella', 'multitrack'].includes(qualityLower)
-        }
-
-        return false
+        return Boolean(quality) && isValidQuality(platform, quality)
+            && getQualityRequirement(quality, platform) === 'SVIP'
     }
 
     isAccountLocked(username) {

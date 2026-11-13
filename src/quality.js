@@ -20,7 +20,8 @@ export const VALID_QUALITY = {
  * 音质中文名与会员要求（按平台）
  * 网易：320 / 无损 / Hi-Res / 臻音 → VIP；sky / jymaster / dolby → SVIP
  * QQ：HQ / SQ → VIP；臻品全景声 / 臻品母带 → 超级会员（文档记作超会 / SVIP）
- * 汽水：320 → VIP；无损 / 录音室 / 全景 → SVIP（不支持 higher）`n * 酷狗：320 / 无损 → VIP；Hi-Res / 全景声 / 母带 → SVIP
+ * 汽水：320 → VIP；无损 / 录音室 / 全景 → SVIP（不支持 higher）
+ * 酷狗：320 / 无损 / Hi-Res → VIP；蝰蛇 / 母带 / 人声伴奏 / 多轨 → SVIP
  */
 export const QUALITY_META = {
     '128': { name: '标准', tencent: '标准品质', vip: false, svip: false },

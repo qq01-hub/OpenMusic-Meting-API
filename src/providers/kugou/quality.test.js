@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getQualityName, getQualityRequirement } from '../../quality.js'
+import store, { selectCookieForQuality } from '../../admin/store.js'
 
 describe('kugou quality membership tiers', () => {
   it('marks 320 and lossless as VIP', () => {
@@ -15,6 +16,14 @@ describe('kugou quality membership tiers', () => {
     expect(getQualityRequirement('viper_tape', 'kugou')).toBe('SVIP')
     expect(getQualityRequirement('viper_clear', 'kugou')).toBe('SVIP')
     expect(getQualityRequirement('viper_hifi', 'kugou')).toBe('SVIP')
+  })
+
+  it('uses the same VIP tier for Hi-Res account selection and SVIP detection', () => {
+    const vip = { userInfo: { canPlayVip: true } }
+    expect(selectCookieForQuality([vip], 'hires', 'kugou')).toBe(vip)
+    expect(store.isQualityRequiresSvip('hires', 'kugou')).toBe(false)
+    expect(selectCookieForQuality([vip], 'viper_atmos', 'kugou')).toBeNull()
+    expect(store.isQualityRequiresSvip('viper_atmos', 'kugou')).toBe(true)
   })
 
   it('keeps standard quality free and names Kugou formats', () => {

@@ -7,6 +7,27 @@ import { getTencentVerification } from '../providers/tencent/song.js'
 describe('FM account selection', () => {
     afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
+    it.each([
+        ['qishui', 'standard', '标准'],
+        ['qishui', 'exhigh', '极高'],
+        ['qishui', 'lossless', '无损'],
+        ['qishui', 'atmos', '全景声'],
+        ['qishui', 'studio', '录音室音质'],
+        ['tencent', 'SQ无损品质', 'SQ无损品质'],
+    ])('%s returns the actual quality name for provider level %s', async (server, actual, name) => {
+        vi.spyOn(store, 'getLoudnessServiceUrl').mockReturnValue('')
+        vi.spyOn(Providers.prototype, 'get').mockReturnValue({
+            support_type: ['url'],
+            handle: vi.fn().mockResolvedValue({ url: 'https://example.com/song.flac', quality: actual }),
+        })
+        const ctx = {
+            req: { query: () => ({ server, type: 'url', id: 'song', quality: server === 'qishui' ? 'studio' : 'master' }), header: () => 'EXPLICIT_COOKIE' },
+            status: vi.fn(), json: vi.fn(value => value),
+        }
+
+        expect(await api(ctx)).toMatchObject({ url: 'https://example.com/song.flac', quality: name })
+    })
+
     it.each(['netease', 'tencent', 'qishui', 'kugou'])('%s retries FM with a random VIP account after the selected account fails', async (server) => {
         const selected = { id: 'selected', platform: server, cookie: 'SELECTED', isActive: true, isValid: true, userInfo: { canPlayVip: false } }
         const free = { id: 'free', platform: server, cookie: 'FREE', isActive: true, isValid: true, userInfo: { canPlayVip: false } }
