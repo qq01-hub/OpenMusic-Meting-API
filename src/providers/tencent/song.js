@@ -229,7 +229,7 @@ export const get_song_url = async (id, cookie = '', options = {}) => {
     const uin = cookieObj.uin || cookieObj.wxuin || ''
     const authst = cookieObj.qqmusic_key || cookieObj.qm_keyst || ''
     const requested = (options.quality || '128').toLowerCase()
-    const levels = buildFallbackLevels(requested)
+    const levels = options.strictQuality ? buildFallbackLevels(requested).slice(0, 1) : buildFallbackLevels(requested)
 
     // 批量时保持旧行为（海外 JSONP 或多 id）
     if (config.OVERSEAS || ids.length > 1) {
@@ -305,7 +305,7 @@ export const get_song_url = async (id, cookie = '', options = {}) => {
         }
     }
 
-    return null
+    return options.strictQuality ? { url: '', qualityUnavailable: true } : null
 }
 
 export const get_song_info = async (id, cookie = '') => {

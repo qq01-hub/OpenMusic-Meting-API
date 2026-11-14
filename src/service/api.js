@@ -87,6 +87,10 @@ export default async (ctx) => {
         }))
     }
     const requiresSvip = type === 'url' && Boolean(quality) && store.isQualityRequiresSvip(quality, server)
+    // QQ 高音质先换 SVIP 尝试目标档位，候选账号尝试结束后才允许降级
+    const strictQuality = server === 'tencent' && requiresSvip && Boolean(storedCookie)
+        && !config.OVERSEAS && !id.includes(',')
+    const qualityOptions = strictQuality ? { strictQuality: true } : {}
     let data
     let initialRequestError = null
     const pendingApiLogs = []
@@ -183,7 +187,7 @@ export default async (ctx) => {
         }
     } else {
         try {
-            data = await p.get(server).handle(type, id, cookie, { quality, signerUrl, ...pagination })
+            data = await p.get(server).handle(type, id, cookie, { quality, signerUrl, ...pagination, ...qualityOptions })
             if (logTencentFm) await logTencentFm(Array.isArray(data) && data.length ? 'success' : 'empty', null, {
                 attempt: 1,
                 songCount: Array.isArray(data) ? data.length : 0,
@@ -227,6 +231,7 @@ export default async (ctx) => {
         let hadUrlResponse = initialRequestError === null
         let urlFailure = initialRequestError ? musicFailure(initialRequestError, server) : null
         let failoverAttempted = false
+        const downgradeCandidates = []
         if (!url && storedCookie) {
             const attemptedIds = []
             const attemptedCookies = new Set()
@@ -234,17 +239,20 @@ export default async (ctx) => {
             while (!url && storedCookie) {
                 attemptedIds.push(storedCookie.id)
                 attemptedCookies.add(cookie)
-                await store.recordCookieUrlFailure(storedCookie.id, id, Boolean(payload?.verificationRequired))
-                pendingApiLogs.push({
-                    method: ctx.req.method,
-                    path: ctx.req.path,
-                    status: 200,
-                    level: 'warning',
-                    code: payload?.verificationRequired ? 'URL_VERIFICATION_REQUIRED' : initialRequestError ? 'URL_ACCOUNT_FAILED' : 'URL_EMPTY_RESULT',
-                    platform: server,
-                    cookieId: storedCookie.id,
-                    error: payload?.verificationRequired ? '账号要求验证' : initialRequestError?.message || '账号未返回播放链接',
-                })
+                if (strictQuality && !payload?.verificationRequired) downgradeCandidates.push(storedCookie)
+                if (!payload?.qualityUnavailable) {
+                    await store.recordCookieUrlFailure(storedCookie.id, id, Boolean(payload?.verificationRequired))
+                    pendingApiLogs.push({
+                        method: ctx.req.method,
+                        path: ctx.req.path,
+                        status: 200,
+                        level: 'warning',
+                        code: payload?.verificationRequired ? 'URL_VERIFICATION_REQUIRED' : initialRequestError ? 'URL_ACCOUNT_FAILED' : 'URL_EMPTY_RESULT',
+                        platform: server,
+                        cookieId: storedCookie.id,
+                        error: payload?.verificationRequired ? '账号要求验证' : initialRequestError?.message || '账号未返回播放链接',
+                    })
+                }
                 initialRequestError = null
                 if (failoverRetries >= MAX_URL_FAILOVER_RETRIES) break
                 failoverRetries += 1
@@ -269,7 +277,7 @@ export default async (ctx) => {
                 ctx.set?.('apiLogContext', { platform: server, cookieId: fallbackCookie.id })
                 data = null
                 try {
-                    data = await p.get(server).handle(type, id, cookie, { quality, signerUrl })
+                    data = await p.get(server).handle(type, id, cookie, { quality, signerUrl, ...qualityOptions })
                     hadUrlResponse = true
                 } catch (error) {
                     urlFailure = musicFailure(error, server)
@@ -288,6 +296,31 @@ export default async (ctx) => {
                     ? buildUrlPayload(data, quality || 'standard', quality || 'standard', server)
                     : data
                 url = payload?.url || ''
+            }
+        }
+        if (!url && strictQuality) {
+            for (const candidate of downgradeCandidates) {
+                if (candidate.isActive === false || candidate.isValid === false
+                    || Number(candidate.tencentCooldownUntil) > Date.now()) continue
+                storedCookie = candidate
+                cookie = candidate.cookie
+                ctx.set?.('apiLogContext', { platform: server, cookieId: candidate.id })
+                payload = null
+                try {
+                    payload = await p.get(server).handle(type, id, cookie, { quality, signerUrl })
+                    hadUrlResponse = true
+                    url = payload?.url || ''
+                    if (url) break
+                    await store.recordCookieUrlFailure(candidate.id, id, Boolean(payload?.verificationRequired))
+                } catch (error) {
+                    urlFailure = musicFailure(error, server)
+                    await store.recordCookieUrlFailure(candidate.id, id, false)
+                    pendingApiLogs.push({
+                        method: ctx.req.method, path: ctx.req.path, status: 200,
+                        level: 'warning', code: 'URL_ACCOUNT_FAILED', platform: server,
+                        cookieId: candidate.id, error: error?.message || '账号取链请求失败',
+                    })
+                }
             }
         }
         if (!url) {
