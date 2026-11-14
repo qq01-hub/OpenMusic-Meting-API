@@ -1977,7 +1977,7 @@ const getAdminHtml = () => `<!DOCTYPE html>
             if (!res?.success) return;
             const tbody = document.getElementById('apiLogsList');
             if (!res.data.length) {
-                tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="empty-state-text">暂无接口错误日志</div></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="empty-state-text">暂无接口日志</div></td></tr>';
                 return;
             }
             const categoryNames = {
@@ -1987,10 +1987,13 @@ const getAdminHtml = () => `<!DOCTYPE html>
                 upstream: '上游请求',
                 account: '账号状态',
                 request: '请求错误',
+                fm_trace: 'FM 跟踪',
             };
+            const levelNames = { info: '信息', warning: '警告', error: '错误' };
+            const levelClasses = { info: 'badge-info', warning: 'badge-warning', error: 'badge-error' };
             tbody.innerHTML = res.data.map(log => '<tr>'
                 + '<td>' + formatDate(log.timestamp) + '</td>'
-                + '<td><span class="badge ' + (log.level === 'warning' ? 'badge-warning' : 'badge-error') + '">' + (log.level === 'warning' ? '警告' : '错误') + '</span></td>'
+                + '<td><span class="badge ' + (levelClasses[log.level] || 'badge-error') + '">' + (levelNames[log.level] || '错误') + '</span></td>'
                 + '<td><span title="' + (log.code || '-') + '">' + (categoryNames[log.category] || log.category || '请求错误') + '</span><br><code>' + (log.code || '-') + '</code></td>'
                 + '<td>' + (log.method || '-') + '</td>'
                 + '<td><code>' + (log.path || '-') + '</code></td>'

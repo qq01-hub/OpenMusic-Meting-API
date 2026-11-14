@@ -1,6 +1,21 @@
 import { expect, it } from 'vitest'
 import { adminPageHandler } from './page.js'
 
+it.each([
+    ['info', 'badge-info', '信息'],
+    ['warning', 'badge-warning', '警告'],
+    ['error', 'badge-error', '错误'],
+])('renders %s interface logs with the correct severity', async (level, badge, label) => {
+    const html = adminPageHandler({ html: value => value })
+    const body = html.match(/const loadApiLogs = async \(\) => \{([\s\S]*?)\n        \};/)[1]
+    const tbody = { innerHTML: '' }
+    const load = new Function('api', 'document', 'formatDate', 'return (async () => {' + body + '})()')
+    await load(async () => ({ success: true, data: [{ level, category: 'fm_trace', code: 'FM_TENCENT_TRACE', status: 200 }] }),
+        { getElementById: () => tbody }, () => '')
+    expect(tbody.innerHTML).toContain('class="badge ' + badge + '">' + label + '</span>')
+    expect(tbody.innerHTML).toContain('FM 跟踪')
+})
+
 it('shows each Cookie URL failure count in the admin list', () => {
     const html = adminPageHandler({ html: value => value })
     expect(html).toContain('URL 获取失败：')
